@@ -6,6 +6,10 @@ type Database struct {
 	Rds *sql.DB
 }
 
+func (d *Database) Close() any {
+	panic("unimplemented")
+}
+
 func NewDatabase() (*Database, error) {
 
 	rds, err := NewRdsConnection()

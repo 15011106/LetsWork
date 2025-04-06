@@ -1,7 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/15011106/LetsWork/internal/delivery/router"
 	"github.com/15011106/LetsWork/internal/infrastructure"
@@ -24,12 +29,31 @@ func main() {
 	router.RegisterSystemRoutes(app)
 	router.RegisterUserRoutes(app, userUsecase)
 
-	// Define a route for the GET method on the root path '/'
-	app.Get("/", func(c fiber.Ctx) error {
-		// Send a string response to the client
-		return c.SendString("Hello, World 👋!")
-	})
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	// Start the server on port 3000
-	log.Fatal(app.Listen(":3000"))
+	go func() {
+
+		if err := app.Listen(":8080"); err != nil {
+			log.Panicf("Server failed to start: %v", err)
+		}
+	}()
+
+	<-c
+	log.Println("Gracefully shutting down...")
+
+	_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := app.Shutdown(); err != nil {
+		log.Fatalf("Error shutting down server: %v", err)
+	}
+
+	if err := db.Close(); err != nil {
+		log.Printf("Error closing DB: %v", err)
+	}
+
+	log.Println("Server gracefully stopped")
+
+	log.Fatal(app.Listen(":8080"))
 }
